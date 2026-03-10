@@ -1,21 +1,34 @@
-from pycaret.regression import *
 import pandas as pd
+import joblib
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error
 
 def train_energy_model():
+    # 1. โหลดข้อมูล
     df = pd.read_csv('data/cleaned_energy_data.csv')
     
-    # เลือก Features ที่จะใช้ (ตัด timestamp ออกเพราะ PyCaret จะแยกส่วนประกอบให้เอง)
-    # เราจะพยากรณ์ total_kwh
-    s = setup(data=df, target='total_kwh', 
-              ignore_features=['timestamp'], 
-              session_id=296) # ใช้เลข Student ID ของคุณเป็น Seed
+    # 2. เลือก Features (X) และ Target (y)
+    # เราจะใช้ temp_outside, aircon_hours, is_weekend, month เป็นตัวพยากรณ์
+    features = ['temp_outside', 'aircon_hours', 'is_weekend', 'month']
+    X = df[features]
+    y = df['total_kwh']
     
-    # เปรียบเทียบ Model (โชว์ในรายงานได้)
-    best = compare_models()
+    # 3. แบ่งข้อมูล Train/Test
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=296)
     
-    # บันทึก Model ไว้ใช้ใน Dash
-    save_model(best, 'models/best_energy_model')
-    print("Step 2: Model Trained and Saved!")
+    # 4. สร้างและเทรน Model (ใช้ RandomForest เหมือนที่ PyCaret มักจะเลือกให้)
+    model = RandomForestRegressor(n_estimators=100, random_state=296)
+    model.fit(X_train, y_train)
+    
+    # 5. วัดผล (เก็บค่านี้ไว้ใส่ในรายงานด้วยนะ)
+    predictions = model.predict(X_test)
+    mae = mean_absolute_error(y_test, predictions)
+    print(f"Model Trained! Mean Absolute Error: {mae:.4f}")
+    
+    # 6. บันทึก Model ไว้ใช้ใน Dash (ไฟล์ .pkl)
+    joblib.dump(model, 'models/best_energy_model.pkl')
+    print("Step 2: Model Saved as models/best_energy_model.pkl")
 
 if __name__ == "__main__":
     train_energy_model()
